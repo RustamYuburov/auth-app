@@ -1,103 +1,105 @@
 /////// app.js
-
-const express = require("express");
-const path = require("path");
-const session = require("express-session");
-const passport = require("passport");
-const LocalStrategy = require("passport-local").Strategy;
-const mongoose = require("mongoose");
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const session = require('express-session');
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const bcrypt = require('bcryptjs');
 
-const mongoDb = "mongodb+srv://magma:auth1234app@cluster0.acojs.mongodb.net/myFirstDatabase?retryWrites=true&w=majority";
+const mongoDb = process.env.MONGODB_URI;
 mongoose.connect(mongoDb, { useUnifiedTopology: true, useNewUrlParser: true });
 const db = mongoose.connection;
-db.on("error", console.error.bind(console, "mongo connection error"));
+db.on('error', console.error.bind(console, 'mongo connection error'));
 
 const User = mongoose.model(
-  "User",
+  'User',
   new Schema({
     username: { type: String, required: true },
-    password: { type: String, required: true }
+    password: { type: String, required: true },
   })
 );
 
 const app = express();
-app.set("views", __dirname);
-app.set("view engine", "ejs");
+app.set('views', __dirname);
+app.set('view engine', 'ejs');
 
 passport.use(
   new LocalStrategy((username, password, done) => {
     User.findOne({ username: username }, (err, user) => {
-      if (err) { 
+      if (err) {
         return done(err);
       }
       if (!user) {
-        return done(null, false, { message: "Incorrect username" });
+        return done(null, false, { message: 'Incorrect username' });
       }
       bcrypt.compare(password, user.password, (err, res) => {
         if (err) return done(err);
         if (res) {
           // passwords match! log user in
-          return done(null, user)
+          return done(null, user);
         } else {
           // passwords do not match!
-          return done(null, false, { message: "Incorrect password" })
+          return done(null, false, { message: 'Incorrect password' });
         }
-      })
+      });
       // return done(null, user);
     });
   })
 );
-passport.serializeUser(function(user, done) {
+passport.serializeUser(function (user, done) {
   done(null, user.id);
 });
 
-passport.deserializeUser(function(id, done) {
-  User.findById(id, function(err, user) {
+passport.deserializeUser(function (id, done) {
+  User.findById(id, function (err, user) {
     done(err, user);
   });
 });
 
-app.use(session({ secret: "cats", resave: false, saveUninitialized: true }));
+app.use(session({ secret: process.env.SECRET, resave: false, saveUninitialized: true }));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.urlencoded({ extended: false }));
 
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   res.locals.currentUser = req.user;
   next();
 });
 
-app.get("/", (req, res) => res.render("index"));
-app.get("/sign-up", (req, res) => res.render("sign-up-form"));
+app.get('/', (req, res) => res.render('index'));
+app.get('/sign-up', (req, res) => res.render('sign-up-form'));
 
-app.post("/sign-up", (req, res, next) => {
+app.post('/sign-up', (req, res, next) => {
   bcrypt.hash(req.body.password, 10, (err, hashedPassword) => {
-    if (err) { return next(err); }
+    if (err) {
+      return next(err);
+    }
     const user = new User({
       username: req.body.username,
-      password: hashedPassword
-    }).save(err => {
-      if (err) { 
+      password: hashedPassword,
+    }).save((err) => {
+      if (err) {
         return next(err);
       }
-      res.redirect("/");
+      res.redirect('/');
     });
-  })
+  });
 });
 
 app.post(
-  "/log-in",
-  passport.authenticate("local", {
-    successRedirect: "/",
-    failureRedirect: "/"
+  '/log-in',
+  passport.authenticate('local', {
+    successRedirect: '/',
+    failureRedirect: '/',
   })
 );
 
-app.get("/log-out", (req, res) => {
+app.get('/log-out', (req, res) => {
   req.logout();
-  res.redirect("/");
+  res.redirect('/');
 });
 
-app.listen(3000, () => console.log("app listening on port 3000!"));
+app.listen(3000, () => console.log('app listening on port 3000!'));
